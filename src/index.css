@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Crimson Text", serif;
+  --font-display: "Playfair Display", serif;
+  --font-fantasy: "Cinzel", serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-forest-950: #0a110a;
+  --color-forest-900: #0f1a10;
+  --color-forest-850: #142416;
+  --color-forest-800: #1a2f1c;
+  --color-forest-700: #223f25;
+  --color-forest-600: #2b4e2e;
+  --color-forest-500: #38613c;
+  --color-forest-400: #497d4d;
+  --color-forest-300: #62a367;
+  --color-forest-200: #88c88c;
+
+  --color-parchment-50: #fdfbf7;
+  --color-parchment-100: #faf6ea;
+  --color-parchment-200: #f4ecda;
+  --color-parchment-300: #e8dbbc;
+  --color-parchment-400: #d8c29b;
+  --color-parchment-500: #ccb080;
+  
+  --color-stone-150: #efece6;
+  --color-stone-450: #857e72;
+  --color-stone-850: #1f1b16;
+
+  --animate-spin-slow: spin 20s linear infinite;
+  --animate-fade-in: fadeIn 0.4s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Base style setups */
+body {
+  font-family: var(--font-body), "Crimson Text", serif;
+  background-color: var(--color-forest-950);
+  color: var(--color-parchment-50);
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar matching paper parchment and forest roots */
+::-webkit-scrollbar {
+  width: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-forest-950);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(98, 163, 103, 0.25);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.4);
+}
+
+/* Glowing aesthetic effects */
+.shadow-glow-amber {
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+}
+
+.shadow-glow-cream {
+  box-shadow: 0 0 20px rgba(253, 251, 247, 0.1);
+}
+
+.text-glow-cream {
+  text-shadow: 0 0 8px rgba(253, 251, 247, 0.2);
+}
+
+.text-glow-amber {
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+/* Parchment cover overlay effect */
+.parchment-overlay {
+  background-image: radial-gradient(rgba(0,0,0,0) 60%, rgba(20,10,5,0.08) 100%);
+}

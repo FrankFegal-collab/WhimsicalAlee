@@ -1,0 +1,6 @@
+{
+  "name": "The Whispering Forest Library",
+  "description": "An immersive, magical fairycore storytelling archive with a parchment reader, ambient audio controls, interactive lore categories, and an administrative Keeper's Desk.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

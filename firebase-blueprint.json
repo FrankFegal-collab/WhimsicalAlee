@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "post": {
+      "title": "Post",
+      "description": "A scroll, poem, or fragment written in the Whispering Woods Library.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique document ID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the whisper."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Brief description of the whisper's content."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full text content. Markdown or HTML supported."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Stories", "Poems", "Fragments of Thought", "Midnight Thoughts", "Letters", "Fantasy Lore"],
+          "description": "The category wing where this whisper is shelved."
+        },
+        "coverImageURL": {
+          "type": "string",
+          "description": "Optional URL to an image cover scroll."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the whisper was inscribed."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the whisper was last amended."
+        },
+        "likes": {
+          "type": "integer",
+          "description": "Count of times this whisper was hearted."
+        },
+        "bookmarks": {
+          "type": "integer",
+          "description": "Count of times this whisper was bookmarked."
+        },
+        "views": {
+          "type": "integer",
+          "description": "Count of times this whisper was unfurled."
+        },
+        "isDraft": {
+          "type": "boolean",
+          "description": "Whether the whisper is in draft state and visible only to keepers."
+        },
+        "authorSig": {
+          "type": "string",
+          "description": "A signature or pen name of the author."
+        },
+        "readTime": {
+          "type": "string",
+          "description": "Estimated time needed to digest the scroll."
+        }
+      },
+      "required": ["id", "title", "summary", "content", "category", "createdAt", "updatedAt", "likes", "bookmarks", "views", "isDraft"]
+    },
+    "comment": {
+      "title": "Comment",
+      "description": "A quiet response or fairy whisper left under a specific post.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique comment ID."
+        },
+        "postId": {
+          "type": "string",
+          "description": "The ID of the post this comment is tied to."
+        },
+        "author": {
+          "type": "string",
+          "description": "Name or pen signature of the commenter."
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the response."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the comment was left."
+        },
+        "isWhisper": {
+          "type": "boolean",
+          "description": "Whether it has a fairycore visual spark."
+        }
+      },
+      "required": ["id", "postId", "author", "content", "timestamp", "isWhisper"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "post",
+      "description": "The collection storing all public and draft posts."
+    },
+    "/comments/{commentId}": {
+      "schema": "comment",
+      "description": "A flat collection holding reader responses connected to post IDs."
+    }
+  }
+}

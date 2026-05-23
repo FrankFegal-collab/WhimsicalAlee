@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Post schema validation
+    function isValidPost(data) {
+      return data.keys().hasAll(['id', 'title', 'summary', 'content', 'category', 'createdAt', 'updatedAt', 'likes', 'bookmarks', 'views', 'isDraft'])
+        && data.keys().size() >= 10 && data.keys().size() <= 14
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 200
+        && data.summary is string && data.summary.size() <= 500
+        && data.content is string && data.content.size() <= 50000
+        && data.category is string && data.category.size() <= 50
+        && data.likes is int && data.likes >= 0
+        && data.bookmarks is int && data.bookmarks >= 0
+        && data.views is int && data.views >= 0
+        && data.isDraft is bool
+        && data.createdAt is string && data.createdAt.size() <= 100
+        && data.updatedAt is string && data.updatedAt.size() <= 100;
+    }
+
+    // Comment schema validation
+    function isValidComment(data) {
+      return data.keys().hasAll(['id', 'postId', 'author', 'content', 'timestamp', 'isWhisper'])
+        && data.keys().size() == 6
+        && data.id is string && data.id.size() <= 128
+        && data.postId is string && data.postId.size() <= 128
+        && data.author is string && data.author.size() <= 100
+        && data.content is string && data.content.size() <= 1000
+        && data.timestamp is string && data.timestamp.size() <= 100
+        && data.isWhisper is bool;
+    }
+
+    // Post match rules
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isValidId(postId) && isValidPost(incoming());
+      allow update: if (
+        // Action 1: Guest interact - increment likes, bookmarks, or views
+        (incoming().diff(existing()).affectedKeys().hasAny(['likes', 'bookmarks', 'views']) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['likes', 'bookmarks', 'views']))
+        || 
+        // Action 2: Publisher update - changing title, content, summary, category, status draft, etc.
+        (isValidPost(incoming()) && incoming().id == existing().id && incoming().createdAt == existing().createdAt)
+      );
+      allow delete: if true; // Allows keeper to clean up
+    }
+
+    // Comment match rules
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isValidId(commentId) && isValidComment(incoming()) && exists(/databases/$(database)/documents/posts/$(incoming().postId));
+      allow update: if false; // Comments are immutable once left under a scroll
+      allow delete: if true; // Keeper can delete/burn comments
+    }
+  }
+}

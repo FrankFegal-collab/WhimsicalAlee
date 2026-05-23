@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
-  Lock, BookOpen, Clock, Heart, Eye, ArrowLeft, Trash2, Edit, PlusCircle, CheckCircle, Save, FileText, Image, Sparkles
+  Lock, BookOpen, Clock, Heart, Eye, ArrowLeft, Trash2, Edit, PlusCircle, CheckCircle, Save, FileText, Image, Sparkles, RefreshCw
 } from 'lucide-react';
 import { Post, Category } from '../types';
 import { SUGGESTED_COVER_IMAGES } from '../data/seedData';
@@ -17,6 +17,7 @@ interface KeeperDeskProps {
   onUpdatePost: (post: Post) => void;
   onDeletePost: (id: string) => void;
   onClose: () => void;
+  onResetToSeeds: () => void;
 }
 
 const CATEGORIES: Category[] = ['Stories', 'Poems', 'Fragments of Thought', 'Midnight Thoughts', 'Letters', 'Fantasy Lore'];
@@ -27,6 +28,7 @@ export default function KeeperDesk({
   onUpdatePost,
   onDeletePost,
   onClose,
+  onResetToSeeds,
 }: KeeperDeskProps) {
   // Passcode authentication
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -428,6 +430,29 @@ export default function KeeperDesk({
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Keeper's Archive Settings */}
+            <div className="bg-stone-900/80 border border-forest-500/15 rounded-xl p-5 shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 font-bold pointer-events-none text-9xl">📖</div>
+              
+              <h3 className="font-fantasy text-base text-amber-300 tracking-wider border-b border-forest-800 pb-2.5 mb-3 uppercase">
+                Keeper's Seals
+              </h3>
+
+              <p className="font-serif text-xs text-stone-300 leading-relaxed mb-4">
+                If the forest archives become tangled or you wish to start anew, you may restore the starting layout and remove any customized drafts.
+              </p>
+
+              <button
+                id="reset-seeds-btn"
+                onClick={onResetToSeeds}
+                className="w-full text-stone-300 hover:text-amber-300 font-mono text-[11px] flex items-center justify-center space-x-1.5 transition cursor-pointer bg-forest-950 hover:bg-forest-900 border border-forest-850 px-3 py-2.5 rounded-lg active:scale-95"
+                title="Reset library state"
+              >
+                <RefreshCw size={11} className="text-amber-500" />
+                <span>Trigger Reset Seals</span>
+              </button>
             </div>
           </div>
         </div>

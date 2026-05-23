@@ -15,11 +15,15 @@ import AudioPlayer from './components/AudioPlayer';
 import QuoteReveal from './components/QuoteReveal';
 import PostReader from './components/PostReader';
 import KeeperDesk from './components/KeeperDesk';
+import { 
+  collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from './firebase';
 
 const LOR_SHELFS: Category[] = ['Stories', 'Poems', 'Fragments of Thought', 'Midnight Thoughts', 'Letters', 'Fantasy Lore'];
 
 export default function App() {
-  // 1. Core State
+  // 1. Core State (Synced in Real-time with Firestore)
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
@@ -31,36 +35,37 @@ export default function App() {
   const [activePost, setActivePost] = useState<Post | null>(null);
   const [isKeeperDeskOpen, setIsKeeperDeskOpen] = useState(false);
 
-  // 3. Setup and seed initial data on mount
+  // 3. Connect real-time listeners to Firestore on mount
   useEffect(() => {
-    // Check if initial posts exist in localStorage
-    const savedPostsStr = localStorage.getItem('whispering_forest_posts');
-    if (savedPostsStr) {
-      try {
-        setPosts(JSON.parse(savedPostsStr));
-      } catch (e) {
-        setPosts(SEED_POSTS);
-      }
-    } else {
-      setPosts(SEED_POSTS);
-      localStorage.setItem('whispering_forest_posts', JSON.stringify(SEED_POSTS));
-    }
+    // A. Listen to Posts
+    const postsRef = collection(db, 'posts');
+    const unsubscribePosts = onSnapshot(postsRef, (snapshot) => {
+      const fetchedPosts: Post[] = [];
+      snapshot.forEach((d) => {
+        fetchedPosts.push({ id: d.id, ...d.data() } as Post);
+      });
+      // Sort posts chronologically (newest first)
+      fetchedPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setPosts(fetchedPosts);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'posts');
+    });
 
-    // Check if initial comments exist
-    const savedCommentsStr = localStorage.getItem('whispering_forest_comments');
-    if (savedCommentsStr) {
-      try {
-        setComments(JSON.parse(savedCommentsStr));
-      } catch (e) {
-        setComments(getInitialComments());
-      }
-    } else {
-      const startingComments = getInitialComments();
-      setComments(startingComments);
-      localStorage.setItem('whispering_forest_comments', JSON.stringify(startingComments));
-    }
+    // B. Listen to Comments
+    const commentsRef = collection(db, 'comments');
+    const unsubscribeComments = onSnapshot(commentsRef, (snapshot) => {
+      const fetchedComments: Comment[] = [];
+      snapshot.forEach((d) => {
+        fetchedComments.push({ id: d.id, ...d.data() } as Comment);
+      });
+      // Sort comments (newest first)
+      fetchedComments.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setComments(fetchedComments);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'comments');
+    });
 
-    // Check personal bookmarks
+    // C. Check visitor bookmarks in localStorage (local to device)
     const savedBookmarksStr = localStorage.getItem('whispering_forest_bookmarks');
     if (savedBookmarksStr) {
       try {
@@ -68,119 +73,111 @@ export default function App() {
       } catch (e) {}
     }
 
-    // Check personal likes
+    // D. Check visitor likes in localStorage (local to device)
     const savedLikesStr = localStorage.getItem('whispering_forest_likes');
     if (savedLikesStr) {
       try {
         setLikedIds(JSON.parse(savedLikesStr));
       } catch (e) {}
     }
+
+    return () => {
+      unsubscribePosts();
+      unsubscribeComments();
+    };
   }, []);
 
-  // Standard initial comments for realism
+  // Standard initial comments creator (now deprecated as we start fully blank or on database input)
   const getInitialComments = (): Comment[] => {
-    return [
-      {
-        id: 'comm-1',
-        postId: 'forest-4',
-        author: 'A Wood Wanderer',
-        content: 'This lantern tale feels so soothing. I can almost smell the dried honeysuckle and hear the crackling birch wood. Thank you for recording this.',
-        timestamp: '2026-05-21T03:15:00Z',
-        isWhisper: true
-      },
-      {
-        id: 'comm-2',
-        postId: 'forest-1',
-        author: 'Nymph_Rowan',
-        content: 'The rhythm here is lovely, it flows just like leaf-melt in early spring.',
-        timestamp: '2026-04-13T09:40:00Z',
-        isWhisper: false
-      }
-    ];
+    return [];
   };
 
-  // Helper to persist posts
-  const savePostsToStorage = (updatedPosts: Post[]) => {
-    setPosts(updatedPosts);
-    localStorage.setItem('whispering_forest_posts', JSON.stringify(updatedPosts));
-  };
-
-  // Helper to persist bookmarks
+  // Helper to persist bookmarks locally
   const saveBookmarksToStorage = (updatedBookmarks: string[]) => {
     setBookmarkedIds(updatedBookmarks);
     localStorage.setItem('whispering_forest_bookmarks', JSON.stringify(updatedBookmarks));
   };
 
-  // Helper to persist likes
+  // Helper to persist likes locally
   const saveLikesToStorage = (updatedLikes: string[]) => {
     setLikedIds(updatedLikes);
     localStorage.setItem('whispering_forest_likes', JSON.stringify(updatedLikes));
   };
 
-  // Helper to persist comments
-  const saveCommentsToStorage = (updatedComments: Comment[]) => {
-    setComments(updatedComments);
-    localStorage.setItem('whispering_forest_comments', JSON.stringify(updatedComments));
-  };
-
-  // 4. Core Actions
-  const handleToggleBookmark = (id: string) => {
-    const nextBookmarks = bookmarkedIds.includes(id)
+  // 4. Core Actions backed by true Firestore persistence
+  const handleToggleBookmark = async (id: string) => {
+    const isBookmarked = bookmarkedIds.includes(id);
+    const nextBookmarks = isBookmarked
       ? bookmarkedIds.filter((bId) => bId !== id)
       : [...bookmarkedIds, id];
     
     saveBookmarksToStorage(nextBookmarks);
 
-    // Increment/Decrement bookmark count on post
-    const updatedPosts = posts.map((post) => {
-      if (post.id === id) {
-        const diff = bookmarkedIds.includes(id) ? -1 : 1;
-        return { ...post, bookmarks: Math.max(0, post.bookmarks + diff) };
+    const postObj = posts.find((post) => post.id === id);
+    if (postObj) {
+      const diff = isBookmarked ? -1 : 1;
+      const postRef = doc(db, 'posts', id);
+      try {
+        await updateDoc(postRef, {
+          bookmarks: Math.max(0, postObj.bookmarks + diff)
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `posts/${id}`);
       }
-      return post;
-    });
-    savePostsToStorage(updatedPosts);
+    }
   };
 
-  const handleToggleHeart = (id: string) => {
-    const nextLikes = likedIds.includes(id)
+  const handleToggleHeart = async (id: string) => {
+    const isLiked = likedIds.includes(id);
+    const nextLikes = isLiked
       ? likedIds.filter((lId) => lId !== id)
       : [...likedIds, id];
     
     saveLikesToStorage(nextLikes);
 
-    // Increment/Decrement like count on post
-    const updatedPosts = posts.map((post) => {
-      if (post.id === id) {
-        const diff = likedIds.includes(id) ? -1 : 1;
-        return { ...post, likes: Math.max(0, post.likes + diff) };
+    const postObj = posts.find((post) => post.id === id);
+    if (postObj) {
+      const diff = isLiked ? -1 : 1;
+      const postRef = doc(db, 'posts', id);
+      try {
+        await updateDoc(postRef, {
+          likes: Math.max(0, postObj.likes + diff)
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `posts/${id}`);
       }
-      return post;
-    });
-    savePostsToStorage(updatedPosts);
+    }
   };
 
-  const handleIncrementViews = (id: string) => {
-    const updatedPosts = posts.map((post) => {
-      if (post.id === id) {
-        return { ...post, views: post.views + 1 };
+  const handleIncrementViews = async (id: string) => {
+    const postObj = posts.find((post) => post.id === id);
+    if (postObj) {
+      const postRef = doc(db, 'posts', id);
+      try {
+        await updateDoc(postRef, {
+          views: postObj.views + 1
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `posts/${id}`);
       }
-      return post;
-    });
-    savePostsToStorage(updatedPosts);
+    }
   };
 
-  const handleAddComment = (postId: string, author: string, content: string, isWhisper: boolean) => {
+  const handleAddComment = async (postId: string, author: string, content: string, isWhisper: boolean) => {
+    const newCommentId = `comm-${Date.now()}`;
     const newComment: Comment = {
-      id: `comm-${Date.now()}`,
+      id: newCommentId,
       postId,
       author,
       content,
       timestamp: new Date().toISOString(),
       isWhisper
     };
-    const nextComments = [newComment, ...comments];
-    saveCommentsToStorage(nextComments);
+    try {
+      await setDoc(doc(db, 'comments', newCommentId), newComment);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `comments/${newCommentId}`);
+    }
   };
 
   const handleOpenReader = (post: Post) => {
@@ -188,37 +185,61 @@ export default function App() {
     handleIncrementViews(post.id);
   };
 
-  const handleAddPost = (newPost: Post) => {
-    const updated = [newPost, ...posts];
-    savePostsToStorage(updated);
+  const handleAddPost = async (newPost: Post) => {
+    try {
+      await setDoc(doc(db, 'posts', newPost.id), newPost);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `posts/${newPost.id}`);
+    }
   };
 
-  const handleUpdatePost = (updatedPost: Post) => {
-    const updated = posts.map(p => p.id === updatedPost.id ? updatedPost : p);
-    savePostsToStorage(updated);
+  const handleUpdatePost = async (updatedPost: Post) => {
+    try {
+      await setDoc(doc(db, 'posts', updatedPost.id), updatedPost);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `posts/${updatedPost.id}`);
+    }
     if (activePost && activePost.id === updatedPost.id) {
       setActivePost(updatedPost);
     }
   };
 
-  const handleDeletePost = (id: string) => {
-    const updated = posts.filter(p => p.id !== id);
-    savePostsToStorage(updated);
+  const handleDeletePost = async (id: string) => {
+    try {
+      // Clean up linked comments
+      const relatedComments = comments.filter(c => c.postId === id);
+      for (const comment of relatedComments) {
+        await deleteDoc(doc(db, 'comments', comment.id));
+      }
+      // Delete the post
+      await deleteDoc(doc(db, 'posts', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `posts/${id}`);
+    }
     if (activePost && activePost.id === id) {
       setActivePost(null);
     }
   };
 
-  const handleResetToSeeds = () => {
+  const handleResetToSeeds = async () => {
     if (confirm('Do you wish to restore the library to its initial pre-compiled state? All drafts and updates will disappear.')) {
-      setPosts(SEED_POSTS);
-      setComments(getInitialComments());
-      setBookmarkedIds([]);
-      setLikedIds([]);
-      localStorage.setItem('whispering_forest_posts', JSON.stringify(SEED_POSTS));
-      localStorage.setItem('whispering_forest_comments', JSON.stringify(getInitialComments()));
-      localStorage.setItem('whispering_forest_bookmarks', JSON.stringify([]));
-      localStorage.setItem('whispering_forest_likes', JSON.stringify([]));
+      try {
+        for (const post of posts) {
+          await deleteDoc(doc(db, 'posts', post.id));
+        }
+        for (const comment of comments) {
+          await deleteDoc(doc(db, 'comments', comment.id));
+        }
+        for (const post of SEED_POSTS) {
+          await setDoc(doc(db, 'posts', post.id), post);
+        }
+        setBookmarkedIds([]);
+        setLikedIds([]);
+        localStorage.setItem('whispering_forest_bookmarks', JSON.stringify([]));
+        localStorage.setItem('whispering_forest_likes', JSON.stringify([]));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'reset-seeds');
+      }
     }
   };
 
@@ -308,6 +329,7 @@ export default function App() {
                 onUpdatePost={handleUpdatePost}
                 onDeletePost={handleDeletePost}
                 onClose={() => setIsKeeperDeskOpen(false)}
+                onResetToSeeds={handleResetToSeeds}
               />
             </motion.div>
           ) : (
@@ -600,16 +622,6 @@ export default function App() {
           <p className="font-mono text-[10px] text-stone-500">
             © 2026 The Whispering Woods Archive • Hand-scribed under candle shadow
           </p>
-          <span>•</span>
-          <button
-            id="reset-seeds-btn"
-            onClick={handleResetToSeeds}
-            className="text-stone-500 hover:text-amber-400 font-mono text-[10px] flex items-center space-x-1 transition cursor-pointer bg-forest-900/10 hover:bg-forest-900/30 px-2 py-1 rounded"
-            title="Reset library state"
-          >
-            <RefreshCw size={9} className="mr-0.5" />
-            <span>Reset Seals</span>
-          </button>
         </div>
       </footer>
     </div>
